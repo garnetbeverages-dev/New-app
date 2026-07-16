@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Pivrifine — Bottle Filling Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F2436;
+    --ink-2:#0A1A26;
+    --paper:#EDF1F0;
+    --card:#FFFFFF;
+    --teal:#0E5C56;
+    --teal-dark:#0A423E;
+    --brass:#C98A3B;
+    --brass-light:#E3B876;
+    --text:#16232B;
+    --text-muted:#5B6B70;
+    --rust:#B54A3F;
+    --border:#DBE2E0;
+    --radius:14px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+    --font-body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:480px;margin:0 auto;padding:22px 16px 60px;}
+
+  /* setup banner */
+  .setup-banner{background:#FFF4E0;border:1px solid var(--brass);color:#5A4113;border-radius:var(--radius);padding:12px 14px;font-size:12.5px;line-height:1.5;margin-bottom:16px;}
+  .setup-banner strong{display:block;font-size:13px;margin-bottom:4px;}
+  .setup-banner code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-family:var(--font-mono);font-size:11.5px;}
+  .setup-banner[hidden]{display:none;}
+
+  /* header */
+  .app-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .eyebrow{display:block;font-size:10px;letter-spacing:.14em;color:var(--text-muted);font-weight:600;}
+  h1{font-family:var(--font-display);font-size:30px;margin:2px 0 0;color:var(--ink);letter-spacing:-0.01em;}
+  .sync-status{font-size:11px;color:var(--text-muted);}
+  .manage-btn{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--text);cursor:pointer;flex-shrink:0;white-space:nowrap;}
+  .manage-btn svg{color:var(--brass);flex-shrink:0;}
+  .manage-btn:hover{border-color:var(--teal);color:var(--teal-dark);}
+  .manage-btn:focus-visible{outline:2px solid var(--teal);outline-offset:1px;}
+
+  /* SKU panel */
+  .sku-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px;}
+  .sku-panel[hidden]{display:none;}
+  .sku-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .sku-panel-head h2{font-family:var(--font-body);font-size:12px;margin:0;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+  .sku-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+  .sku-row{display:flex;align-items:center;gap:8px;}
+  .sku-name-input{flex:1 1 auto;min-width:0;font-family:var(--font-body);font-size:14px;padding:8px 9px;border:1px solid var(--border);border-radius:8px;background:var(--paper);color:var(--text);}
+  .sku-rate-wrap{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;}
+  .sku-rate-input{width:62px;font-family:var(--font-mono);font-size:13px;padding:8px 5px;border:1px solid var(--border);border-radius:8px;background:var(--paper);color:var(--text);}
+  .sku-add-form{display:flex;gap:8px;flex-wrap:wrap;border-top:1px dashed var(--border);padding-top:12px;}
+  .sku-add-form input{font-family:var(--font-body);font-size:14px;padding:8px 9px;border:1px solid var(--border);border-radius:8px;background:var(--paper);color:var(--text);}
+  .sku-add-form input[type="text"]{flex:1 1 110px;min-width:0;}
+  .sku-add-form input[type="number"]{width:88px;font-family:var(--font-mono);}
+
+  /* meter */
+  .meter-panel{
+    background:var(--ink);border-radius:var(--radius);
+    padding:22px 16px 16px;text-align:center;position:relative;overflow:hidden;margin-top:18px;
+  }
+  .meter-panel::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,transparent,var(--brass),transparent);
+  }
+  .meter-digits{display:inline-flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;}
+  .digit{
+    font-family:var(--font-mono);font-weight:600;font-size:28px;
+    color:#F2ECDF;background:var(--ink-2);min-width:30px;padding:8px 2px;
+    border-radius:6px;box-shadow:inset 0 2px 4px rgba(0,0,0,.6),inset 0 -1px 0 rgba(255,255,255,.05);
+    font-variant-numeric:tabular-nums;
+  }
+  .digit.changed{animation:meterPulse .4s ease;}
+  @keyframes meterPulse{0%{transform:scale(1);}30%{transform:scale(1.08);}100%{transform:scale(1);}}
+  @media (prefers-reduced-motion:reduce){.digit.changed{animation:none;}}
+  .meter-label{font-family:var(--font-body);font-size:11px;letter-spacing:.12em;color:var(--brass-light);text-transform:uppercase;}
+  .meter-breakdown{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px;}
+  .sku-chip{font-family:var(--font-body);font-size:10.5px;color:var(--brass-light);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:4px 10px;}
+  .sku-chip b{color:#fff;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;}
+
+  /* stats */
+  .stats-row{display:flex;gap:10px;margin:14px 0 4px;}
+  .stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 8px;text-align:center;}
+  .stat-label{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+  .stat-value{font-family:var(--font-mono);font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;}
+  .stat-balance.owed .stat-value{color:var(--rust);}
+  .stat-balance.settled .stat-value{color:var(--teal-dark);}
+  .stat-note{display:block;font-size:9px;margin-top:2px;color:var(--text-muted);}
+  .stats-footnote{font-size:10.5px;color:var(--text-muted);text-align:center;margin:0 0 10px;}
+  .btn-print{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:11px;border-radius:10px;font-family:var(--font-body);font-weight:600;font-size:13px;cursor:pointer;margin-bottom:6px;}
+  .btn-print:hover{border-color:var(--teal);color:var(--teal-dark);}
+  .btn-print:focus-visible{outline:2px solid var(--teal);outline-offset:1px;}
+  .btn-print svg{color:var(--brass);flex-shrink:0;}
+
+  /* tabs */
+  .tabs{display:flex;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:4px;margin:18px 0 14px;}
+  .tab{flex:1;border:none;background:transparent;padding:10px 12px;border-radius:999px;font-family:var(--font-body);font-weight:600;font-size:13px;color:var(--text-muted);cursor:pointer;}
+  .tab.active{background:var(--teal);color:#fff;}
+  .panel[hidden]{display:none;}
+
+  /* forms */
+  .entry-form{display:flex;flex-wrap:wrap;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+  .field{display:flex;flex-direction:column;gap:4px;flex:1 1 120px;}
+  .field label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
+  .field input,.field select{font-family:var(--font-body);font-size:15px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--paper);color:var(--text);width:100%;}
+  .field input:focus-visible,.field select:focus-visible{outline:2px solid var(--teal);outline-offset:1px;}
+  .field-hint{font-size:11px;color:var(--teal-dark);min-height:14px;}
+  .form-actions{display:flex;gap:8px;align-items:flex-end;}
+  .btn-primary{background:var(--teal);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);padding:10px 14px;border-radius:8px;font-weight:600;font-size:14px;color:var(--text-muted);cursor:pointer;}
+
+  /* entry list */
+  .entry-list{display:flex;flex-direction:column;}
+  .entry-row{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;border-bottom:1px solid var(--border);gap:8px;}
+  .entry-row:last-child{border-bottom:none;}
+  .entry-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .entry-date{font-size:12px;color:var(--text-muted);}
+  .entry-qty{font-size:15px;font-weight:600;}
+  .entry-note{font-size:12px;color:var(--text-muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+  .entry-side{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .entry-amount{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--text);}
+  .entry-actions{display:flex;gap:4px;}
+  .icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .icon-btn:focus-visible{outline:2px solid var(--teal);outline-offset:1px;}
+  .icon-btn.danger:hover{color:var(--rust);border-color:var(--rust);}
+  .icon-btn.confirm{background:var(--rust);color:#fff;border-color:var(--rust);font-size:10px;font-weight:700;width:auto;padding:0 8px;white-space:nowrap;}
+  .empty{color:var(--text-muted);font-size:13px;text-align:center;padding:26px 8px;}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:50;max-width:90vw;text-align:center;}
+  .toast.error{background:var(--rust);}
+
+  /* print report */
+  .print-only{display:none;}
+  @media print{
+    .app{display:none !important;}
+    .toast{display:none !important;}
+    .print-only{
+      display:block !important;
+      color:#111;background:#fff;
+      font-family:Georgia,'Times New Roman',serif;
+      font-size:12pt;
+    }
+    .print-only h1{font-family:var(--font-display),sans-serif;font-size:20pt;margin:0 0 2pt;}
+    .print-only .print-meta{font-size:9pt;color:#555;margin-bottom:16pt;font-family:var(--font-body),sans-serif;}
+    .print-only h2{font-size:13pt;margin:20pt 0 6pt;border-bottom:1px solid #999;padding-bottom:3pt;font-family:var(--font-body),sans-serif;}
+    .print-only table{width:100%;border-collapse:collapse;margin-bottom:10pt;}
+    .print-only th,.print-only td{border-bottom:1px solid #ccc;padding:4pt 6pt;text-align:left;font-size:10.5pt;}
+    .print-only th{font-family:var(--font-body),sans-serif;font-size:9pt;text-transform:uppercase;letter-spacing:.04em;color:#333;border-bottom:1.5px solid #333;}
+    .print-only td.num,.print-only th.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+    .print-only tfoot td{font-weight:700;border-top:1.5px solid #333;border-bottom:none;}
+    .print-only thead{display:table-header-group;}
+    .print-only tr{page-break-inside:avoid;}
+    .print-only .summary-table{max-width:340px;margin-bottom:20pt;}
+    .print-only .summary-table td{border:none;padding:2pt 6pt;font-size:11pt;}
+    .print-only .summary-table tr.balance td{font-weight:700;border-top:1px solid #333;padding-top:6pt;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="setup-banner" id="setupBanner" hidden>
+    <strong>Firebase isn't connected yet</strong>
+    Open this file's code and replace the placeholder values inside <code>firebaseConfig</code> (search for <code>YOUR_API_KEY</code>) with your Firebase project's config. The app works locally until then, but nothing will save.
+  </div>
+
+  <header class="app-header">
+    <div class="brand">
+      <span class="eyebrow">BOTTLE FILLING LEDGER</span>
+      <h1>Pivrifine</h1>
+      <span class="sync-status" id="syncStatus">Connecting…</span>
+    </div>
+    <button class="manage-btn" id="skuManageBtn" type="button" aria-label="Manage SKUs">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Manage SKUs
+    </button>
+  </header>
+
+  <section class="sku-panel" id="skuPanel" hidden>
+    <div class="sku-panel-head">
+      <h2>SKUs &amp; rate per bottle</h2>
+      <button type="button" class="btn-ghost" id="skuDoneBtn">Done</button>
+    </div>
+    <div class="sku-rows" id="skuRows"></div>
+    <form class="sku-add-form" id="skuAddForm">
+      <input type="text" id="skuNameInput" placeholder="SKU name, e.g. 1.5L" maxlength="24" required>
+      <input type="number" id="skuRateInput" placeholder="PKR/bottle" min="0.01" step="0.01" inputmode="decimal" required>
+      <button type="submit" class="btn-primary">Add SKU</button>
+    </form>
+  </section>
+
+  <section class="meter-panel" aria-label="Total bottles filled">
+    <div class="meter-digits" id="meterDigits"></div>
+    <div class="meter-label">Total Bottles Filled</div>
+    <div class="meter-breakdown" id="meterBreakdown"></div>
+  </section>
+
+  <section class="stats-row">
+    <div class="stat">
+      <span class="stat-label">Amount Due</span>
+      <span class="stat-value" id="statDue">PKR 0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Paid</span>
+      <span class="stat-value" id="statPaid">PKR 0</span>
+    </div>
+    <div class="stat stat-balance" id="statBalanceCard">
+      <span class="stat-label">Balance</span>
+      <span class="stat-value" id="statBalance">PKR 0</span>
+      <span class="stat-note" id="balanceNote"></span>
+    </div>
+  </section>
+  <p class="stats-footnote">Balance = Amount Due − Paid</p>
+
+  <button type="button" class="btn-print" id="printBtn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print / Save PDF
+  </button>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="filling" role="tab" aria-selected="true" type="button">Filling Log</button>
+    <button class="tab" data-tab="payments" role="tab" aria-selected="false" type="button">Payments</button>
+  </nav>
+
+  <section class="panel" id="panel-filling" data-panel="filling">
+    <form class="entry-form" id="fillForm">
+      <div class="field">
+        <label for="fillDate">Date</label>
+        <input type="date" id="fillDate" required>
+      </div>
+      <div class="field">
+        <label for="fillSku">SKU</label>
+        <select id="fillSku" required></select>
+      </div>
+      <div class="field">
+        <label for="fillBottles">Bottles filled</label>
+        <input type="number" id="fillBottles" min="1" step="1" inputmode="numeric" placeholder="e.g. 500" required>
+        <span class="field-hint" id="fillAmountHint"></span>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="fillCancel" hidden>Cancel</button>
+        <button type="submit" class="btn-primary" id="fillSubmit">Add fill</button>
+      </div>
+    </form>
+    <div class="entry-list" id="fillList"></div>
+  </section>
+
+  <section class="panel" id="panel-payments" data-panel="payments" hidden>
+    <form class="entry-form" id="payForm">
+      <div class="field">
+        <label for="payDate">Date</label>
+        <input type="date" id="payDate" required>
+      </div>
+      <div class="field">
+        <label for="payAmount">Amount paid (PKR)</label>
+        <input type="number" id="payAmount" min="1" step="1" inputmode="numeric" placeholder="e.g. 20000" required>
+      </div>
+      <div class="field">
+        <label for="payNote">Note (optional)</label>
+        <input type="text" id="payNote" maxlength="60" placeholder="e.g. Cash advance">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="payCancel" hidden>Cancel</button>
+        <button type="submit" class="btn-primary" id="paySubmit">Add payment</button>
+      </div>
+    </form>
+    <div class="entry-list" id="payList"></div>
+  </section>
+
+</div>
+
+<div id="printView" class="print-only" aria-hidden="true"></div>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- Firebase (compat SDK — works with plain <script> tags, no bundler needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // FIREBASE CONFIG — replace with your project's values.
+  // Firebase Console > Project Settings > General > Your apps > SDK setup and configuration.
+  // Also enable: Authentication > Sign-in method > Anonymous, and create a Firestore database.
+  // ============================================================
+  var firebaseConfig = {
+    apiKey: "AIzaSyA4K30IblnzfKZ9ZnJKfiFuJLgB9HWGVLU",
+    authDomain: "pivrifine.firebaseapp.com",
+    projectId: "pivrifine",
+    storageBucket: "pivrifine.firebasestorage.app",
+    messagingSenderId: "568878900645",
+    appId: "1:568878900645:web:693d8578581d5cf142f44c"
+  };
+  var CONFIG_NEEDED = (firebaseConfig.apiKey === 'YOUR_API_KEY');
+
+  var EDIT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  var DELETE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+  var state = { skus: [{ id:'default', name:'Standard', rate:60 }], filling: [], payments: [] };
+  var lastMeterStr = '';
+  var pendingDelete = null;
+  var seededDefaultSku = false;
+
+  // ---- DOM refs ----
+  var setupBanner = document.getElementById('setupBanner');
+  var syncStatus = document.getElementById('syncStatus');
+  var skuManageBtn = document.getElementById('skuManageBtn');
+  var skuPanel = document.getElementById('skuPanel');
+  var skuDoneBtn = document.getElementById('skuDoneBtn');
+  var skuRows = document.getElementById('skuRows');
+  var skuAddForm = document.getElementById('skuAddForm');
+  var skuNameInput = document.getElementById('skuNameInput');
+  var skuRateInput = document.getElementById('skuRateInput');
+
+  var meterDigits = document.getElementById('meterDigits');
+  var meterBreakdown = document.getElementById('meterBreakdown');
+  var statDue = document.getElementById('statDue');
+  var statPaid = document.getElementById('statPaid');
+  var statBalance = document.getElementById('statBalance');
+  var statBalanceCard = document.getElementById('statBalanceCard');
+  var balanceNote = document.getElementById('balanceNote');
+
+  var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+  var fillForm = document.getElementById('fillForm');
+  var fillDateInput = document.getElementById('fillDate');
+  var fillSkuSelect = document.getElementById('fillSku');
+  var fillBottlesInput = document.getElementById('fillBottles');
+  var fillAmountHint = document.getElementById('fillAmountHint');
+  var fillSubmitBtn = document.getElementById('fillSubmit');
+  var fillCancelBtn = document.getElementById('fillCancel');
+  var fillList = document.getElementById('fillList');
+
+  var payForm = document.getElementById('payForm');
+  var payDateInput = document.getElementById('payDate');
+  var payAmountInput = document.getElementById('payAmount');
+  var payNoteInput = document.getElementById('payNote');
+  var paySubmitBtn = document.getElementById('paySubmit');
+  var payCancelBtn = document.getElementById('payCancel');
+  var payList = document.getElementById('payList');
+
+  var toastEl = document.getElementById('toast');
+  var toastTimeout;
+  var printBtn = document.getElementById('printBtn');
+  var printView = document.getElementById('printView');
+
+  // ---- helpers ----
+  function todayISO(){
+    var d = new Date();
+    var tz = d.getTimezoneOffset() * 60000;
+    return new Date(d - tz).toISOString().slice(0,10);
+  }
+  function fmtDate(iso){
+    var d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  function fmtNum(n){
+    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }
+  function escapeHtml(s){
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  function escapeAttr(s){
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  }
+  function showToast(msg, kind){
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show' + (kind ? ' ' + kind : '');
+    toastEl.hidden = false;
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function(){ toastEl.hidden = true; }, 3200);
+  }
+
+  function getSku(id){
+    return state.skus.filter(function(s){ return s.id === id; })[0] || null;
+  }
+  function totalBottles(){
+    return state.filling.reduce(function(s,e){ return s + Number(e.bottles || 0); }, 0);
+  }
+  function totalDue(){
+    return state.filling.reduce(function(s,e){
+      var sku = getSku(e.skuId);
+      return s + Number(e.bottles || 0) * (sku ? sku.rate : 0);
+    }, 0);
+  }
+  function totalPaid(){
+    return state.payments.reduce(function(s,e){ return s + Number(e.amount || 0); }, 0);
+  }
+  function balanceVal(){ return totalDue() - totalPaid(); }
+
+  function sortedFilling(){
+    return state.filling.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+  }
+  function sortedPayments(){
+    return state.payments.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+  }
+  function skuBreakdown(){
+    var map = {};
+    state.skus.forEach(function(s){ map[s.id] = 0; });
+    state.filling.forEach(function(e){
+      if (map.hasOwnProperty(e.skuId)) map[e.skuId] += Number(e.bottles || 0);
+    });
+    return state.skus.map(function(s){ return { id: s.id, name: s.name, rate: s.rate, bottles: map[s.id] || 0 }; });
+  }
+
+  // ---- Firestore wiring ----
+  var db = null, skusCol = null, fillingCol = null, paymentsCol = null;
+
+  function ensureConfigured(){
+    if (CONFIG_NEEDED){
+      showToast('Add your Firebase config first — see the notice above.', 'error');
+      return false;
+    }
+    return true;
+  }
+
+  function initFirebase(){
+    if (CONFIG_NEEDED){
+      setupBanner.hidden = false;
+      syncStatus.textContent = 'Not connected';
+      renderAll();
+      return;
+    }
+    try{
+      firebase.initializeApp(firebaseConfig);
+    } catch(e){
+      showToast('Firebase init failed: ' + e.message, 'error');
+      syncStatus.textContent = 'Connection error';
+      return;
+    }
+    var auth = firebase.auth();
+    db = firebase.firestore();
+    skusCol = db.collection('pivrifine_skus');
+    fillingCol = db.collection('pivrifine_filling');
+    paymentsCol = db.collection('pivrifine_payments');
+
+    auth.onAuthStateChanged(function(user){
+      if (user){
+        syncStatus.textContent = '';
+        attachListeners();
+      }
+    });
+    auth.signInAnonymously().catch(function(err){
+      syncStatus.textContent = 'Sign-in failed';
+      showToast('Sign-in failed: ' + err.message, 'error');
+    });
+  }
+
+  function attachListeners(){
+    skusCol.onSnapshot(function(snap){
+      var skus = [];
+      snap.forEach(function(docSnap){
+        var d = docSnap.data();
+        skus.push({ id: docSnap.id, name: d.name, rate: Number(d.rate) || 0 });
+      });
+      if (skus.length === 0){
+        if (!seededDefaultSku){
+          seededDefaultSku = true;
+          skusCol.add({ name: 'Standard', rate: 60 }).catch(function(err){
+            showToast('Could not seed default SKU: ' + err.message, 'error');
+          });
+        }
+        return;
+      }
+      state.skus = skus;
+      renderAll();
+    }, function(err){ showToast('Sync error (SKUs): ' + err.message, 'error'); });
+
+    fillingCol.onSnapshot(function(snap){
+      var entries = [];
+      snap.forEach(function(docSnap){
+        var d = docSnap.data();
+        entries.push({ id: docSnap.id, date: d.date, skuId: d.skuId, bottles: Number(d.bottles) || 0 });
+      });
+      state.filling = entries;
+      renderAll();
+    }, function(err){ showToast('Sync error (Filling Log): ' + err.message, 'error'); });
+
+    paymentsCol.onSnapshot(function(snap){
+      var entries = [];
+      snap.forEach(function(docSnap){
+        var d = docSnap.data();
+        entries.push({ id: docSnap.id, date: d.date, amount: Number(d.amount) || 0, note: d.note || '' });
+      });
+      state.payments = entries;
+      renderAll();
+    }, function(err){ showToast('Sync error (Payments): ' + err.message, 'error'); });
+  }
+
+  // ---- rendering ----
+  function renderMeter(){
+    var total = totalBottles();
+    var str = String(total).padStart(6, '0');
+    var prev = lastMeterStr || str;
+    var html = '';
+    for (var i = 0; i < str.length; i++){
+      var changed = (i < prev.length ? prev[i] : null) !== str[i] ? ' changed' : '';
+      html += '<span class="digit' + changed + '">' + str[i] + '</span>';
+    }
+    meterDigits.innerHTML = html;
+    lastMeterStr = str;
+
+    meterBreakdown.innerHTML = skuBreakdown().map(function(it){
+      return '<span class="sku-chip">' + escapeHtml(it.name) + ' <b>' + fmtNum(it.bottles) + '</b></span>';
+    }).join('');
+  }
+
+  function renderStats(){
+    var due = totalDue(), paid = totalPaid(), bal = balanceVal();
+    statDue.textContent = 'PKR ' + fmtNum(due);
+    statPaid.textContent = 'PKR ' + fmtNum(paid);
+    statBalance.textContent = 'PKR ' + fmtNum(Math.abs(bal));
+    statBalanceCard.classList.remove('owed','settled');
+    if (bal > 0){
+      statBalanceCard.classList.add('owed');
+      balanceNote.textContent = 'Owed to you';
+    } else if (bal < 0){
+      statBalanceCard.classList.add('settled');
+      balanceNote.textContent = 'Paid in advance';
+    } else {
+      statBalanceCard.classList.add('settled');
+      balanceNote.textContent = 'Settled';
+    }
+  }
+
+  function rowActionsHtml(){
+    return '<div class="entry-actions">' +
+      '<button type="button" class="icon-btn" data-action="edit" aria-label="Edit entry">' + EDIT_ICON + '</button>' +
+      '<button type="button" class="icon-btn danger" data-action="delete" aria-label="Delete entry">' + DELETE_ICON + '</button>' +
+      '</div>';
+  }
+
+  function renderFillList(){
+    clearPendingIfType('filling');
+    var list = sortedFilling();
+    if (list.length === 0){
+      fillList.innerHTML = '<p class="empty">No fills logged yet — add today\u2019s count above to start tracking.</p>';
+      return;
+    }
+    fillList.innerHTML = list.map(function(e){
+      var sku = getSku(e.skuId);
+      var rate = sku ? sku.rate : 0;
+      var skuName = sku ? sku.name : 'Unknown SKU';
+      var amount = Number(e.bottles || 0) * rate;
+      return '<div class="entry-row" data-id="' + e.id + '">' +
+        '<div class="entry-main">' +
+          '<span class="entry-date">' + fmtDate(e.date) + '</span>' +
+          '<span class="entry-qty">' + fmtNum(e.bottles) + ' \u00d7 ' + escapeHtml(skuName) + '</span>' +
+        '</div>' +
+        '<div class="entry-side">' +
+          '<span class="entry-amount">PKR ' + fmtNum(amount) + '</span>' +
+          rowActionsHtml() +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderPayList(){
+    clearPendingIfType('payments');
+    var list = sortedPayments();
+    if (list.length === 0){
+      payList.innerHTML = '<p class="empty">No payments recorded yet — log one once you receive it.</p>';
+      return;
+    }
+    payList.innerHTML = list.map(function(e){
+      return '<div class="entry-row" data-id="' + e.id + '">' +
+        '<div class="entry-main">' +
+          '<span class="entry-date">' + fmtDate(e.date) + '</span>' +
+          (e.note ? '<span class="entry-note">' + escapeHtml(e.note) + '</span>' : '') +
+        '</div>' +
+        '<div class="entry-side">' +
+          '<span class="entry-amount">PKR ' + fmtNum(e.amount) + '</span>' +
+          rowActionsHtml() +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderSkuRows(){
+    clearPendingIfType('skus');
+    skuRows.innerHTML = state.skus.map(function(s){
+      return '<div class="sku-row" data-id="' + s.id + '">' +
+        '<input type="text" class="sku-name-input" value="' + escapeAttr(s.name) + '" maxlength="24">' +
+        '<div class="sku-rate-wrap">PKR <input type="number" class="sku-rate-input" value="' + s.rate + '" min="0.01" step="0.01"></div>' +
+        '<button type="button" class="icon-btn danger" data-action="delete" aria-label="Delete SKU">' + DELETE_ICON + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function populateSkuSelect(preserveId){
+    var currentVal = preserveId !== undefined ? preserveId : fillSkuSelect.value;
+    fillSkuSelect.innerHTML = state.skus.map(function(s){
+      return '<option value="' + s.id + '">' + escapeHtml(s.name) + ' \u2014 PKR ' + fmtNum(s.rate) + '/bottle</option>';
+    }).join('');
+    if (currentVal && state.skus.some(function(s){ return s.id === currentVal; })){
+      fillSkuSelect.value = currentVal;
+    }
+  }
+
+  function updateFillHint(){
+    var sku = getSku(fillSkuSelect.value);
+    var b = Number(fillBottlesInput.value);
+    fillAmountHint.textContent = (b > 0 && sku) ? ('= PKR ' + fmtNum(b * sku.rate) + ' at ' + sku.name + ' rate') : '';
+  }
+
+  function renderAll(){
+    populateSkuSelect();
+    renderSkuRows();
+    renderMeter();
+    renderStats();
+    renderFillList();
+    renderPayList();
+    updateFillHint();
+  }
+
+  // ---- delete confirm (shared across filling / payments / skus) ----
+  function clearPendingIfType(type){
+    if (pendingDelete && pendingDelete.type === type){
+      clearTimeout(pendingDelete.timeout);
+      pendingDelete = null;
+    }
+  }
+  function handleDeleteClick(type, id, btn){
+    if (pendingDelete && pendingDelete.type === type && pendingDelete.id === id){
+      clearTimeout(pendingDelete.timeout);
+      pendingDelete = null;
+      performDelete(type, id);
+      return;
+    }
+    if (pendingDelete && pendingDelete.btn){
+      pendingDelete.btn.classList.remove('confirm');
+      pendingDelete.btn.innerHTML = DELETE_ICON;
+    }
+    btn.classList.add('confirm');
+    btn.innerHTML = 'Confirm?';
+    var timeout = setTimeout(function(){
+      btn.classList.remove('confirm');
+      btn.innerHTML = DELETE_ICON;
+      pendingDelete = null;
+    }, 3000);
+    pendingDelete = { type: type, id: id, btn: btn, timeout: timeout };
+  }
+  function performDelete(type, id){
+    if (!ensureConfigured()) return;
+    if (type === 'filling'){
+      fillingCol.doc(id).delete().catch(function(err){ showToast('Could not delete: ' + err.message, 'error'); });
+    } else if (type === 'payments'){
+      paymentsCol.doc(id).delete().catch(function(err){ showToast('Could not delete: ' + err.message, 'error'); });
+    } else if (type === 'skus'){
+      var inUse = state.filling.some(function(e){ return e.skuId === id; });
+      if (inUse){
+        showToast('Can\u2019t delete — entries use this SKU.', 'error');
+        return;
+      }
+      if (state.skus.length <= 1){
+        showToast('Keep at least one SKU.', 'error');
+        return;
+      }
+      skusCol.doc(id).delete().catch(function(err){ showToast('Could not delete: ' + err.message, 'error'); });
+    }
+  }
+
+  // ---- edit ----
+  function startEditFilling(id){
+    var e = state.filling.filter(function(x){ return x.id === id; })[0];
+    if (!e) return;
+    fillDateInput.value = e.date;
+    populateSkuSelect(e.skuId);
+    fillBottlesInput.value = e.bottles;
+    updateFillHint();
+    fillForm.dataset.editingId = id;
+    fillSubmitBtn.textContent = 'Save changes';
+    fillCancelBtn.hidden = false;
+    fillDateInput.focus();
+  }
+  function startEditPayment(id){
+    var e = state.payments.filter(function(x){ return x.id === id; })[0];
+    if (!e) return;
+    payDateInput.value = e.date;
+    payAmountInput.value = e.amount;
+    payNoteInput.value = e.note || '';
+    payForm.dataset.editingId = id;
+    paySubmitBtn.textContent = 'Save changes';
+    payCancelBtn.hidden = false;
+    payDateInput.focus();
+  }
+  function resetFillForm(){
+    fillForm.reset();
+    delete fillForm.dataset.editingId;
+    fillSubmitBtn.textContent = 'Add fill';
+    fillCancelBtn.hidden = true;
+    fillDateInput.value = todayISO();
+    populateSkuSelect(null);
+    fillAmountHint.textContent = '';
+  }
+  function resetPayForm(){
+    payForm.reset();
+    delete payForm.dataset.editingId;
+    paySubmitBtn.textContent = 'Add payment';
+    payCancelBtn.hidden = true;
+    payDateInput.value = todayISO();
+  }
+
+  // ---- print report ----
+  function buildPrintView(){
+    var now = new Date();
+    var stamp = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) +
+      ', ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+    var due = totalDue(), paid = totalPaid(), bal = balanceVal();
+    var balLabel = bal > 0 ? 'Owed to you' : (bal < 0 ? 'Paid in advance' : 'Settled');
+
+    var skuRowsHtml = skuBreakdown().map(function(it){
+      return '<tr><td>' + escapeHtml(it.name) + '</td><td class="num">' + fmtNum(it.bottles) +
+        '</td><td class="num">PKR ' + fmtNum(it.rate) + '</td><td class="num">' + fmtNum(it.bottles * it.rate) + '</td></tr>';
+    }).join('');
+
+    var fillRows = sortedFilling().map(function(e){
+      var sku = getSku(e.skuId);
+      var rate = sku ? sku.rate : 0;
+      var skuName = sku ? sku.name : 'Unknown SKU';
+      var amt = Number(e.bottles || 0) * rate;
+      return '<tr><td>' + fmtDate(e.date) + '</td><td>' + escapeHtml(skuName) + '</td><td class="num">' +
+        fmtNum(e.bottles) + '</td><td class="num">' + fmtNum(amt) + '</td></tr>';
+    }).join('');
+    var payRows = sortedPayments().map(function(e){
+      return '<tr><td>' + fmtDate(e.date) + '</td><td class="num">' + fmtNum(e.amount) + '</td><td>' +
+        (e.note ? escapeHtml(e.note) : '') + '</td></tr>';
+    }).join('');
+
+    var html = '';
+    html += '<h1>Pivrifine</h1>';
+    html += '<div class="print-meta">Bottle Filling Ledger &middot; Printed ' + stamp + '</div>';
+    html += '<table class="summary-table">' +
+      '<tr><td>Total Bottles Filled</td><td class="num">' + fmtNum(totalBottles()) + '</td></tr>' +
+      '<tr><td>Amount Due (PKR)</td><td class="num">' + fmtNum(due) + '</td></tr>' +
+      '<tr><td>Paid (PKR)</td><td class="num">' + fmtNum(paid) + '</td></tr>' +
+      '<tr class="balance"><td>Balance (PKR) \u2014 ' + balLabel + '</td><td class="num">' + fmtNum(Math.abs(bal)) + '</td></tr>' +
+    '</table>';
+
+    html += '<h2>By SKU</h2>';
+    html += '<table><thead><tr><th>SKU</th><th class="num">Bottles Filled</th><th class="num">Rate (PKR)</th><th class="num">Amount (PKR)</th></tr></thead><tbody>' + skuRowsHtml + '</tbody></table>';
+
+    html += '<h2>Filling Log</h2>';
+    html += fillRows ?
+      ('<table><thead><tr><th>Date</th><th>SKU</th><th class="num">Bottles Filled</th><th class="num">Amount (PKR)</th></tr></thead>' +
+       '<tbody>' + fillRows + '</tbody>' +
+       '<tfoot><tr><td colspan="2">Total</td><td class="num">' + fmtNum(totalBottles()) + '</td><td class="num">' + fmtNum(due) + '</td></tr></tfoot></table>')
+      : '<p>No fills logged yet.</p>';
+
+    html += '<h2>Payments</h2>';
+    html += payRows ?
+      ('<table><thead><tr><th>Date</th><th class="num">Amount Paid (PKR)</th><th>Note</th></tr></thead>' +
+       '<tbody>' + payRows + '</tbody>' +
+       '<tfoot><tr><td>Total</td><td class="num">' + fmtNum(paid) + '</td><td></td></tr></tfoot></table>')
+      : '<p>No payments recorded yet.</p>';
+
+    printView.innerHTML = html;
+  }
+
+  // ---- event listeners ----
+  tabButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      tabButtons.forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected','true');
+      panels.forEach(function(p){ p.hidden = (p.dataset.panel !== btn.dataset.tab); });
+    });
+  });
+
+  fillList.addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('.icon-btn') : null;
+    if (!btn) return;
+    var row = ev.target.closest('.entry-row');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var action = btn.getAttribute('data-action');
+    if (action === 'edit') startEditFilling(id);
+    else if (action === 'delete') handleDeleteClick('filling', id, btn);
+  });
+  payList.addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('.icon-btn') : null;
+    if (!btn) return;
+    var row = ev.target.closest('.entry-row');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var action = btn.getAttribute('data-action');
+    if (action === 'edit') startEditPayment(id);
+    else if (action === 'delete') handleDeleteClick('payments', id, btn);
+  });
+
+  fillBottlesInput.addEventListener('input', updateFillHint);
+  fillSkuSelect.addEventListener('change', updateFillHint);
+
+  fillForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    if (!ensureConfigured()) return;
+    var dateVal = fillDateInput.value;
+    var skuId = fillSkuSelect.value;
+    var bottles = Number(fillBottlesInput.value);
+    if (!dateVal || !skuId || !bottles || bottles <= 0) return;
+    var editingId = fillForm.dataset.editingId;
+    var payload = { date: dateVal, skuId: skuId, bottles: bottles };
+    var op = editingId ? fillingCol.doc(editingId).update(payload) : fillingCol.add(payload);
+    op.catch(function(err){ showToast('Could not save: ' + err.message, 'error'); });
+    resetFillForm();
+  });
+  fillCancelBtn.addEventListener('click', resetFillForm);
+
+  payForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    if (!ensureConfigured()) return;
+    var dateVal = payDateInput.value;
+    var amount = Number(payAmountInput.value);
+    var note = payNoteInput.value.trim();
+    if (!dateVal || !amount || amount <= 0) return;
+    var editingId = payForm.dataset.editingId;
+    var payload = { date: dateVal, amount: amount, note: note };
+    var op = editingId ? paymentsCol.doc(editingId).update(payload) : paymentsCol.add(payload);
+    op.catch(function(err){ showToast('Could not save: ' + err.message, 'error'); });
+    resetPayForm();
+  });
+  payCancelBtn.addEventListener('click', resetPayForm);
+
+  skuManageBtn.addEventListener('click', function(){
+    skuPanel.hidden = !skuPanel.hidden;
+  });
+  skuDoneBtn.addEventListener('click', function(){
+    skuPanel.hidden = true;
+  });
+  skuRows.addEventListener('change', function(ev){
+    if (!ensureConfigured()) return;
+    var row = ev.target.closest ? ev.target.closest('.sku-row') : null;
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var sku = getSku(id);
+    if (!sku) return;
+    if (ev.target.classList.contains('sku-name-input')){
+      var v = ev.target.value.trim();
+      if (v) skusCol.doc(id).update({ name: v }).catch(function(err){ showToast('Could not save: ' + err.message, 'error'); });
+      else ev.target.value = sku.name;
+    } else if (ev.target.classList.contains('sku-rate-input')){
+      var r = Number(ev.target.value);
+      if (r > 0) skusCol.doc(id).update({ rate: r }).catch(function(err){ showToast('Could not save: ' + err.message, 'error'); });
+      else ev.target.value = sku.rate;
+    }
+  });
+  skuRows.addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('.icon-btn') : null;
+    if (!btn) return;
+    var row = ev.target.closest('.sku-row');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    handleDeleteClick('skus', id, btn);
+  });
+  skuAddForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    if (!ensureConfigured()) return;
+    var name = skuNameInput.value.trim();
+    var rate = Number(skuRateInput.value);
+    if (!name || !rate || rate <= 0) return;
+    skusCol.add({ name: name, rate: rate }).catch(function(err){ showToast('Could not save: ' + err.message, 'error'); });
+    skuAddForm.reset();
+  });
+
+  printBtn.addEventListener('click', function(){
+    buildPrintView();
+    window.print();
+  });
+  window.addEventListener('beforeprint', buildPrintView);
+
+  // ---- init ----
+  fillDateInput.value = todayISO();
+  payDateInput.value = todayISO();
+  renderAll();
+  initFirebase();
+
+})();
+</script>
+</body>
+</html>
